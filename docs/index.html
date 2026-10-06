@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0a0a0c" />
+    <meta name="description" content="Chat with Qwen3 0.6B on your own device. A private, adjustable WebGPU chatbot with thinking mode and an editable system prompt." />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://cdn.jsdelivr.net https://huggingface.co https://*.huggingface.co https://*.hf.co https://raw.githubusercontent.com https://*.xethub.hf.co; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'" />
+    <title>Qwen Local</title>
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./assets/style.css" />
+    <script type="module" src="./assets/app.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#prompt">Skip to chat</a>
+    <aside class="rail" aria-label="Chat tools">
+      <a class="brand" href="./" aria-label="Qwen Local home"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="19" cy="19" r="11.5"/><path d="m25 25 8 8M11 29 19 19 28 9"/></svg></a>
+      <button class="icon-button" data-action="new-chat" title="New chat" aria-label="New chat"><span data-icon="new"></span></button>
+      <div class="rail-spacer"></div>
+      <button class="icon-button" data-action="system" title="System prompt" aria-label="Edit system prompt"><span data-icon="system"></span></button>
+      <button class="icon-button" data-action="settings" title="Settings" aria-label="Open settings"><span data-icon="sliders"></span></button>
+      <div class="rail-local" title="Inference stays on your device"><span data-icon="chip"></span></div>
+    </aside>
+
+    <main class="workspace" id="workspace">
+      <header class="topbar">
+        <div class="model-heading"><strong>Qwen<span class="model-three">3</span></strong><span class="model-size">0.6B</span><span class="topbar-divider"></span><span class="local-label">Local</span></div>
+        <div class="topbar-actions">
+          <span class="runtime-status" id="runtime-status"><i></i><span>Not loaded</span></span>
+          <button class="button button-small" id="load-model"><span data-icon="download"></span><span>Load model</span></button>
+          <button class="icon-button mobile-settings" data-action="new-chat" aria-label="New chat"><span data-icon="new"></span></button>
+          <button class="icon-button mobile-settings" data-action="settings" aria-label="Open settings"><span data-icon="sliders"></span></button>
+        </div>
+      </header>
+
+      <div class="conversation-scroll" id="conversation-scroll">
+        <section class="welcome" id="welcome" aria-label="Start a conversation">
+          <div class="welcome-mark" aria-hidden="true"><svg viewBox="0 0 60 60"><circle cx="28" cy="28" r="18"/><path d="m37 37 14 14M14 45 29 28 44 11"/></svg></div>
+          <h1>What’s on your mind?</h1>
+          <p>A small model. All yours.</p>
+          <div class="suggestions" aria-label="Try a prompt">
+            <button data-prompt="Explain a complicated idea using a simple analogy."><span data-icon="spark"></span>Explain an idea</button>
+            <button data-prompt="Help me write a short Python function. Ask me what it should do first."><span data-icon="code"></span>Write some code</button>
+            <button data-prompt="Let’s brainstorm something interesting to build. Ask me about my interests."><span data-icon="brain"></span>Think it through</button>
+          </div>
+        </section>
+        <section class="messages" id="messages" role="log" aria-label="Conversation" aria-live="off"></section>
+        <div class="screen-reader-only" role="status" aria-live="polite" id="chat-announcement"></div>
+      </div>
+
+      <div class="composer-area">
+        <div class="notice" id="notice" role="status" hidden></div>
+        <section class="loading-card" id="loading-card" aria-label="Model loading" hidden>
+          <div class="loading-heading"><span class="spinner"></span><strong id="loading-title">Preparing your model</strong><button class="text-button" id="cancel-load">Cancel</button></div>
+          <div class="progress-track"><div id="load-progress"></div></div>
+          <p id="load-progress-text">The first download is about 350 MB. Model files are cached on this device.</p>
+        </section>
+        <form class="composer" id="chat-form">
+          <label class="screen-reader-only" for="prompt">Message Qwen</label>
+          <textarea id="prompt" rows="1" placeholder="Ask anything" maxlength="120000" autocomplete="off" spellcheck="true"></textarea>
+          <div class="composer-toolbar">
+            <div class="composer-tools">
+              <button type="button" class="pill" id="thinking-toggle" aria-pressed="false" title="Enable thinking before answering"><span data-icon="brain"></span><span>Think</span><span class="pill-indicator"></span></button>
+              <button type="button" class="pill system-pill" data-action="system"><span data-icon="system"></span><span>System prompt</span></button>
+            </div>
+            <div class="composer-send">
+              <span class="composer-model">Qwen3 <span>0.6B</span></span>
+              <button type="submit" class="send-button" id="send" aria-label="Send message" disabled><span data-icon="send"></span></button>
+            </div>
+          </div>
+        </form>
+        <div class="composer-footer"><span><span data-icon="shield"></span>Runs on your device</span><span id="footer-hint">Enter to send <span class="footer-dot">·</span> Shift + Enter for a new line</span></div>
+      </div>
+    </main>
+
+    <dialog class="settings-dialog" id="settings-dialog" aria-labelledby="settings-title">
+      <form id="settings-form" novalidate>
+        <header class="dialog-header"><div><span class="eyebrow">MAKE IT YOURS</span><h2 id="settings-title">Model settings</h2></div><button type="button" class="icon-button" data-close="settings-dialog" aria-label="Close settings"><span data-icon="close"></span></button></header>
+        <div class="settings-scroll">
+          <section class="settings-section">
+            <h3>Generation</h3>
+            <div class="setting-row"><div><label for="setting-thinking">Thinking</label><p>Reason before answering. Uses part of the output budget.</p></div><label class="switch"><input type="checkbox" id="setting-thinking" name="thinking"><span></span></label></div>
+            <div class="setting-field"><div class="setting-label"><label for="setting-max_tokens">Max output tokens</label><input type="number" id="setting-max_tokens" name="max_tokens" min="1" max="32700" step="1" required></div><p>Includes both thinking and the final answer.</p></div>
+            <div class="slider-field" data-setting="temperature"><div class="setting-label"><label for="setting-temperature">Temperature</label><input type="number" id="setting-temperature" name="temperature" min="0" max="2" step="0.01" required></div><input aria-label="Temperature slider" type="range" min="0" max="2" step="0.01"><div class="range-labels"><span>Precise</span><span>Creative</span></div></div>
+            <div class="slider-field" data-setting="top_p"><div class="setting-label"><label for="setting-top_p">Top-p</label><input type="number" id="setting-top_p" name="top_p" min="0.01" max="1" step="0.01" required></div><input aria-label="Top-p slider" type="range" min="0.01" max="1" step="0.01"><p>Sample from this share of the probability distribution.</p></div>
+            <button type="button" class="text-button" id="recommended-settings">Use recommended sampling for this mode</button>
+          </section>
+
+          <details class="settings-section" open><summary><h3>Repetition & randomness</h3><span data-icon="chevron"></span></summary>
+            <div class="slider-field" data-setting="repetition_penalty"><div class="setting-label"><label for="setting-repetition_penalty">Repetition penalty</label><input type="number" id="setting-repetition_penalty" name="repetition_penalty" min="0.1" max="2" step="0.01" required></div><input aria-label="Repetition penalty slider" type="range" min="0.1" max="2" step="0.01"><p>1 is neutral. Higher values discourage repeated output.</p></div>
+            <div class="slider-field" data-setting="frequency_penalty"><div class="setting-label"><label for="setting-frequency_penalty">Frequency penalty</label><input type="number" id="setting-frequency_penalty" name="frequency_penalty" min="-2" max="2" step="0.1" required></div><input aria-label="Frequency penalty slider" type="range" min="-2" max="2" step="0.1"><p>Penalize tokens more as they repeat.</p></div>
+            <div class="slider-field" data-setting="presence_penalty"><div class="setting-label"><label for="setting-presence_penalty">Presence penalty</label><input type="number" id="setting-presence_penalty" name="presence_penalty" min="-2" max="2" step="0.1" required></div><input aria-label="Presence penalty slider" type="range" min="-2" max="2" step="0.1"><p>Penalize tokens that have already appeared in this output.</p></div>
+            <div class="setting-field"><div class="setting-label"><label for="setting-seed">Seed</label><input type="number" id="setting-seed" name="seed" min="0" max="2147483647" step="1" placeholder="Random"></div><p>Leave empty for random. Repeatability can vary by device.</p></div>
+          </details>
+
+          <details class="settings-section"><summary><h3>Output & stopping</h3><span data-icon="chevron"></span></summary>
+            <div class="setting-field"><label for="setting-stop">Stop sequences</label><textarea id="setting-stop" name="stop" rows="3" placeholder="One exact sequence per line"></textarea><p>Stop before these strings. Use \\n for a newline inside a sequence.</p></div>
+            <div class="setting-row"><div><label for="setting-ignore_eos">Ignore end markers</label><p>Continue until the token limit. Also ignores all stop sequences.</p></div><label class="switch"><input type="checkbox" id="setting-ignore_eos" name="ignore_eos"><span></span></label></div>
+            <div class="setting-field"><label for="setting-response_format">Output format</label><select id="setting-response_format" name="response_format"><option value="text">Text / Markdown</option><option value="json_object">JSON object</option><option value="json_schema">JSON with a schema</option><option value="grammar">Custom grammar (EBNF)</option></select><p>Constrained formats turn thinking off while active.</p></div>
+            <div class="setting-field" id="schema-field" hidden><label for="setting-schema">JSON Schema</label><textarea class="code-input" id="setting-schema" name="schema" rows="7" spellcheck="false" placeholder='{"type":"object","properties":{"answer":{"type":"string"}},"required":["answer"]}'></textarea></div>
+            <div class="setting-field" id="grammar-field" hidden><label for="setting-grammar">EBNF grammar</label><textarea class="code-input" id="setting-grammar" name="grammar" rows="5" spellcheck="false" placeholder='root ::= "yes" | "no"'></textarea></div>
+          </details>
+
+          <details class="settings-section"><summary><h3>Advanced controls</h3><span data-icon="chevron"></span></summary>
+            <div class="setting-field"><label for="setting-logit_bias">Token bias</label><textarea class="code-input" id="setting-logit_bias" name="logit_bias" rows="4" spellcheck="false" placeholder='{"1234": -10, "5678": 5}'></textarea><p>A JSON object mapping Qwen token IDs to biases from −100 to 100. Leave empty to disable.</p></div>
+            <div class="setting-row"><div><label for="setting-logprobs">Token probabilities</label><p>Collect token alternatives. Adds work to each generated token.</p></div><label class="switch"><input type="checkbox" id="setting-logprobs" name="logprobs"><span></span></label></div>
+            <div class="setting-field"><div class="setting-label"><label for="setting-top_logprobs">Alternatives per token</label><input type="number" id="setting-top_logprobs" name="top_logprobs" min="1" max="5" step="1" required></div></div>
+            <div class="setting-row"><div><label for="setting-latency">Detailed timing</label><p>Collect extra generation timing in response details.</p></div><label class="switch"><input type="checkbox" id="setting-latency" name="enable_latency_breakdown"><span></span></label></div>
+            <p class="support-note">WebLLM 0.2.85 does not expose top-k, min-p, beam search, or a separate thinking budget. Streaming produces one response at a time.</p>
+          </details>
+
+          <details class="settings-section"><summary><h3>Device & context</h3><span data-icon="chevron"></span></summary>
+            <div class="setting-field"><label for="setting-precision">Model precision</label><select id="setting-precision" name="precision"><option value="auto">4-bit · automatic GPU compatibility</option><option value="q4f16_1">4-bit · float16</option><option value="q4f32_1">4-bit · float32</option><option value="q0f16">Unquantized · float16</option><option value="q0f32">Unquantized · float32</option></select><p>4-bit is the recommended size. Unquantized versions use more download, memory, and compute.</p></div>
+            <div class="setting-field"><label for="setting-context">Context window</label><select id="setting-context" name="context_window_size"><option value="2048">2,048 tokens</option><option value="4096">4,096 tokens · recommended</option><option value="8192">8,192 tokens</option><option value="16384">16,384 tokens</option><option value="32768">32,768 tokens</option></select><p>Shared by your instructions, conversation, thinking, and answer. Larger windows use more GPU memory.</p></div>
+            <div class="setting-field"><label for="setting-overflow">When the conversation fills up</label><select id="setting-overflow" name="overflow"><option value="trim">Keep recent complete turns</option><option value="error">Stop and let me decide</option></select><p>Your system prompt and latest message are always kept. Omitted turns stay visible in the chat.</p></div>
+            <p class="support-note">Precision and context changes unload the model. Load it again to apply them.</p>
+            <div class="device-info" id="device-info">Checking WebGPU…</div>
+            <div class="device-actions"><button type="button" class="button button-small" id="unload-model">Unload model</button><button type="button" class="text-button" id="clear-model-cache">Clear model cache</button></div>
+          </details>
+          <p class="settings-privacy">Your conversation and preferences are saved only in this browser. Prompts are processed locally. Runtime files load from jsDelivr; model downloads use Hugging Face and MLC’s public files.</p>
+          <p class="form-error" id="settings-error" role="alert" hidden></p>
+        </div>
+        <footer class="dialog-footer"><button type="button" class="text-button" id="reset-settings">Reset settings</button><button type="submit" class="button button-primary">Apply settings</button></footer>
+      </form>
+    </dialog>
+
+    <dialog class="system-dialog" id="system-dialog" aria-labelledby="system-title">
+      <form id="system-form">
+        <header class="dialog-header"><div><span class="eyebrow">BEHIND EVERY REPLY</span><h2 id="system-title">System prompt</h2></div><button type="button" class="icon-button" data-close="system-dialog" aria-label="Close system prompt"><span data-icon="close"></span></button></header>
+        <div class="system-content"><p>Set how Qwen should respond. These instructions are sent before your conversation.</p><label class="screen-reader-only" for="system-prompt">System instructions</label><textarea id="system-prompt" rows="10" maxlength="50000" spellcheck="true"></textarea><div id="system-format-note" class="support-note" hidden></div><p class="small-note">Changes apply to the next response. An empty prompt is allowed.</p></div>
+        <footer class="dialog-footer"><button type="button" class="text-button" id="reset-system">Restore default</button><button class="button button-primary" type="submit">Save prompt</button></footer>
+      </form>
+    </dialog>
+
+    <dialog class="confirm-dialog" id="confirm-dialog" aria-labelledby="confirm-title"><h2 id="confirm-title">Start a new chat?</h2><p id="confirm-description">This clears the conversation saved in this browser. Your settings and downloaded model stay.</p><div class="confirm-actions"><button class="button" id="confirm-cancel">Cancel</button><button class="button button-primary" id="confirm-yes">New chat</button></div></dialog>
+    <dialog class="details-dialog" id="details-dialog" aria-labelledby="details-title"><header class="dialog-header"><h2 id="details-title">Response details</h2><button class="icon-button" data-close="details-dialog" aria-label="Close response details"><span data-icon="close"></span></button></header><pre id="response-details"></pre></dialog>
+    <div class="toast" id="toast" role="status" hidden></div>
+    <noscript><div class="noscript">Enable JavaScript to run Qwen in this browser.</div></noscript>
+  </body>
+</html>
