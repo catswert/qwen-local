@@ -1,8 +1,17 @@
-import { MLCEngine, prebuiltAppConfig, deleteModelAllInfoInCache } from '@mlc-ai/web-llm';
-// This published package is UMD despite declaring type:module. Its browser entry
-// installs globalThis.tokenizers; it does not have actual ESM named exports.
-import '@mlc-ai/web-tokenizers';
 import { MODEL_PREFIX, fitContext, createRequest, validateSettings } from './core.js';
+
+let MLCEngine, prebuiltAppConfig, deleteModelAllInfoInCache, appConfig;
+async function loadRuntime() {
+  if (appConfig) return;
+  try {
+    ({ MLCEngine, prebuiltAppConfig, deleteModelAllInfoInCache } = await import('@mlc-ai/web-llm'));
+    // This browser bundle installs globalThis.tokenizers rather than ESM exports.
+    await import('@mlc-ai/web-tokenizers');
+    appConfig = { ...prebuiltAppConfig, cacheBackend: 'cache' };
+  } catch (error) {
+    throw new Error(`Could not load the model runtime: ${error.message}. Check your connection and allow downloads from cdn.jsdelivr.net.`);
+  }
+}
 
 let engine;
 let tokenizer;
@@ -10,13 +19,13 @@ let loadedConfig;
 let working = false;
 let stopRequested = false;
 const post = (type, data = {}) => self.postMessage({ type, ...data });
-const appConfig = { ...prebuiltAppConfig, cacheBackend: 'cache' };
 
 async function loadModel(settings) {
   const s = validateSettings(settings);
   if (!self.navigator.gpu) throw new Error('WebGPU is unavailable. Use an updated browser and operating system with WebGPU support, and enable hardware acceleration.');
   const adapter = await self.navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
   if (!adapter) throw new Error('No compatible GPU was found. Enable hardware acceleration in your browser and update your graphics driver.');
+  await loadRuntime();
   const f16 = adapter.features.has('shader-f16');
   const precision = s.precision === 'auto' ? (f16 ? 'q4f16_1' : 'q4f32_1') : s.precision;
   if (precision.includes('f16') && !f16) throw new Error('This GPU does not support float16. Choose automatic precision or a float32 model.');
@@ -83,6 +92,7 @@ self.onmessage = async ({ data }) => {
     if (data.type === 'load') await loadModel(data.settings);
     else if (data.type === 'generate') await generate(data);
     else if (data.type === 'clear-cache') {
+      await loadRuntime();
       await engine?.unload();
       tokenizer?.dispose();
       tokenizer = null; engine = null; loadedConfig = null;
